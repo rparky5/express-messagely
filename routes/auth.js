@@ -14,8 +14,8 @@ router.post("/login", async function (req, res, next) {
   const { username, password } = req.body;
 
   if (User.authenticate(username, password)) {
-    const token = jwt.sign( { username }, SECRET_KEY);
-    return res.json( { token });
+    const token = jwt.sign({ username }, SECRET_KEY);
+    return res.json({ token });
   }
 
   throw new UnauthorizedError("Invalid user/password");
@@ -28,16 +28,22 @@ router.post("/login", async function (req, res, next) {
  */
 
 router.post("/register", async function (req, res, next) {
-  for (let key in req.body) {
-    if (req.body[key] === undefined) {
+  const body = req.body
+  if (!body?.username ||
+    !body?.password ||
+    !body?.first_name ||
+    !body?.last_name ||
+    !body?.phone) {
       throw new BadRequestError("JSON like: {username, password, first_name, last_name, phone} required.");
-    };
-  };
-});
+    }
 
+  User.register(body);
 
-  const { username, password, first_name, last_name, phone } = req.body;
-  User.register({ username, password, first_name, last_name, phone })
+  const {username, first_name, last_name} = body
+  const payload = {username, first_name, last_name}
+  const token = jwt.sign(payload, SECRET_KEY);
+
+  return res.json({ token });
 })
 
 module.exports = router;

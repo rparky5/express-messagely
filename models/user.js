@@ -5,7 +5,7 @@
 const db = require("../db");
 const bcrypt = require("bcrypt");
 const { BCRYPT_WORK_FACTOR } = require("../config");
-const { UnauthorizedError, NotFoundError } = require("../expressError");
+const { UnauthorizedError, NotFoundError, BadRequestError } = require("../expressError");
 
 
 /** User of the site. */
@@ -16,7 +16,16 @@ class User {
    *    {username, password, first_name, last_name, phone}
    */
 
+  //TODO: throw new error not going to error handler
   static async register({ username, password, first_name, last_name, phone }) {
+    const checkUser = await db.query(
+      `SELECT username
+      FROM users
+      WHERE username = $1`,
+      [username]
+    )
+    if (checkUser.rows.length > 0) throw new BadRequestError("user already exists");
+
     const hashedPassword = await bcrypt.hash(password, BCRYPT_WORK_FACTOR);
 
     const result = await db.query(
@@ -37,7 +46,6 @@ class User {
 
 
   /** Authenticate: is username/password valid? Returns boolean. */
-//TODO: check for hashed password
   static async authenticate(username, password) {
     const result = await db.query(
       `SELECT username, password
