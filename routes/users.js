@@ -1,5 +1,7 @@
 "use strict";
 
+const { ensureLoggedIn, ensureCorrectUser } = require("../middleware/auth");
+const User = require("../models/user")
 const Router = require("express").Router;
 const router = new Router();
 
@@ -10,6 +12,12 @@ const router = new Router();
  *
  **/
 
+router.get("/", ensureLoggedIn, async function (res, req, next) {
+  const users = await User.all();
+
+  return { users };
+})
+
 
 /** GET /:username - get detail of users.
  *
@@ -17,6 +25,11 @@ const router = new Router();
  *
  **/
 
+router.get("/:username", ensureCorrectUser, async function (res, req, next) {
+  const user = await User.get(username);
+
+  return { user };
+})
 
 /** GET /:username/to - get messages to user
  *
@@ -28,6 +41,12 @@ const router = new Router();
  *
  **/
 
+router.get("/:username/to", ensureCorrectUser, async function (res, req, next) {
+  const messages = await User.messagesTo(username);
+
+  return { messages };
+})
+
 
 /** GET /:username/from - get messages from user
  *
@@ -38,5 +57,12 @@ const router = new Router();
  *                 to_user: {username, first_name, last_name, phone}}, ...]}
  *
  **/
+
+router.get("/:username/from", ensureCorrectUser, async function (res, req, next) {
+  const messages = await User.messagesFrom(username);
+
+  return { messages };
+})
+
 
 module.exports = router;

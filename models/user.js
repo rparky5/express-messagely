@@ -24,7 +24,7 @@ class User {
       WHERE username = $1`,
       [username]
     )
-    if (checkUser.rows.length > 0) throw new BadRequestError("user already exists");
+    if (checkUser.rows.length > 0) throw new BadRequestError("User already exists");
 
     const hashedPassword = await bcrypt.hash(password, BCRYPT_WORK_FACTOR);
 

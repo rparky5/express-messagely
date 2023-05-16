@@ -13,9 +13,9 @@ router.post("/login", async function (req, res, next) {
 
   const { username, password } = req.body;
 
-  if (User.authenticate(username, password)) {
-    const token = jwt.sign({ username }, SECRET_KEY);
-    return res.json({ token });
+  if (await User.authenticate(username, password)) {
+    const _token = jwt.sign({ username }, SECRET_KEY);
+    return res.json({ _token });
   }
 
   throw new UnauthorizedError("Invalid user/password");
@@ -37,13 +37,13 @@ router.post("/register", async function (req, res, next) {
       throw new BadRequestError("JSON like: {username, password, first_name, last_name, phone} required.");
     }
 
-  User.register(body);
+  await User.register(body);
 
   const {username, first_name, last_name} = body
   const payload = {username, first_name, last_name}
-  const token = jwt.sign(payload, SECRET_KEY);
+  const _token = jwt.sign(payload, SECRET_KEY);
 
-  return res.json({ token });
+  return res.json({ _token });
 })
 
 module.exports = router;
