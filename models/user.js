@@ -16,7 +16,6 @@ class User {
    *    {username, password, first_name, last_name, phone}
    */
 
-  //TODO: throw new error not going to error handler
   static async register({ username, password, first_name, last_name, phone }) {
     const checkUser = await db.query(
       `SELECT username

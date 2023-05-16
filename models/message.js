@@ -2,7 +2,7 @@
 
 /** Message class for message.ly */
 
-const { NotFoundError } = require("../expressError");
+const { NotFoundError, BadRequestError } = require("../expressError");
 const db = require("../db");
 
 /** Message on the site. */
@@ -14,15 +14,23 @@ class Message {
    */
 
   static async create({ from_username, to_username, body }) {
+    const checkUser = await db.query(
+      `SELECT username
+      FROM users
+      WHERE username = $1`,
+      [to_username]
+    )
+    if (checkUser.rows.length === 0) throw new BadRequestError("Invalid user");
+
     const result = await db.query(
-          `INSERT INTO messages (from_username,
-                                 to_username,
-                                 body,
-                                 sent_at)
-             VALUES
-               ($1, $2, $3, current_timestamp)
-             RETURNING id, from_username, to_username, body, sent_at`,
-        [from_username, to_username, body]);
+        `INSERT INTO messages (from_username,
+                                to_username,
+                                body,
+                                sent_at)
+            VALUES
+              ($1, $2, $3, current_timestamp)
+            RETURNING id, from_username, to_username, body, sent_at`,
+      [from_username, to_username, body]);
 
     return result.rows[0];
   }
