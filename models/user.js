@@ -2,8 +2,11 @@
 
 /** User class for message.ly */
 
-const { NotFoundError } = require("../expressError");
 const db = require("../db");
+const bcrypt = require("bcrypt");
+const { BCRYPT_WORK_FACTOR } = require("../config");
+const { UnauthorizedError, NotFoundError } = require("../expressError");
+
 
 /** User of the site. */
 
@@ -14,7 +17,8 @@ class User {
    */
 
   static async register({ username, password, first_name, last_name, phone }) {
-    //TODO: hash password and store it
+    const hashedPassword = await bcrypt.hash(password, BCRYPT_WORK_FACTOR);
+
     const result = await db.query(
       `INSERT INTO users (username,
                           password,
@@ -23,17 +27,17 @@ class User {
                           phone,
                           join_at,
                           last_login_at)
-         VALUES
+        VALUES
            ($1, $2, $3, $4, $5, current_timestamp, current_timestamp)
-         RETURNING username, password, first_name, last_name, phone`,
-    [username, password, first_name, last_name, phone]);
+        RETURNING username, password, first_name, last_name, phone`,
+    [username, hashedPassword, first_name, last_name, phone]);
 
     return result.rows[0];
   }
 
 
   /** Authenticate: is username/password valid? Returns boolean. */
-
+//TODO: check for hashed password
   static async authenticate(username, password) {
     const result = await db.query(
       `SELECT username, password
@@ -43,20 +47,25 @@ class User {
 
     const user = result.rows[0];
 
-    if (!user) throw new NotFoundError(`No such user: ${username}`);
+    if (!user) throw new UnauthorizedError("Invalid user/password");
 
-    return user.password === password;
+    return await bcrypt.compare(password, user.password);
   }
 
 
   /** Update last_login_at for user */
 
   static async updateLoginTimestamp(username) {
-    await db.query(
+    const result = await db.query(
       `UPDATE users
        SET last_login_at = current_timestamp
-       WHERE username = $1`,
+       WHERE username = $1
+       RETURNING username`,
        [username]);
+
+    const user = result.rows[0];
+
+    if (!user) throw new NotFoundError(`No such user: ${username}`);
   }
 
 
@@ -66,8 +75,8 @@ class User {
   static async all() {
     const results = await db.query(
       `SELECT username, first_name, last_name
-       FROM users`);
-
+       FROM users
+       ORDER BY username`);
     return results.rows;
   }
 
@@ -110,14 +119,14 @@ class User {
               m.body AS body,
               m.sent_at AS sent_at,
               m.read_at AS read_at,
+              m.from_username,
               t.username AS to_username,
               t.first_name AS to_first_name,
               t.last_name AS to_last_name,
               t.phone AS to_phone
       FROM messages AS m
-      JOIN users AS f ON m.from_username = f.username
       JOIN users AS t ON m.to_username = t.username
-      WHERE f.username = $1`,
+      WHERE m.from_username = $1`,
       [username]);
 
     const messages = results.rows.map(message => {
@@ -148,14 +157,14 @@ class User {
 
   static async messagesTo(username) {
     const results = await db.query(
-      `SELECT m.id,
-              m.body,
-              m.sent_at,
-              m.read_at,
-              f.username,
-              f.first_name,
-              f.last_name,
-              f.phone
+      `SELECT m.id AS id,
+              m.body As body,
+              m.sent_at AS sent_at,
+              m.read_at AS read_at,
+              f.username AS from_username,
+              f.first_name AS from_first_name,
+              f.last_name AS from_last_name,
+              f.phone AS from_phone
       FROM messages AS m
       JOIN users AS t ON m.to_username = t.username
       JOIN users AS f ON m.from_username = f.username
@@ -164,16 +173,16 @@ class User {
 
     const messages = results.rows.map(message => {
       return {
-        id: message["m.id"],
+        id: message.id,
         from_user: {
-          username: message["f.username"],
-          first_name: message["f.first_name"],
-          last_name: message["f.last_name"],
-          phone: message["f.phone"]
+          username: message.from_username,
+          first_name: message.from_first_name,
+          last_name: message.from_last_name,
+          phone: message.from_phone
         },
-        body: message["m.body"],
-        sent_at: message["m.sent_at"],
-        read_at: message["m.read_at"]
+        body: message.body,
+        sent_at: message.sent_at,
+        read_at: message.read_at
       }
     });
 
